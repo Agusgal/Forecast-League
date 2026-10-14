@@ -4,7 +4,7 @@
 
 Forecast League es un prototipo de plataforma social de pronósticos: respondés preguntas sobre eventos futuros con una probabilidad, revisás tus predicciones antes del cierre y comparás tu precisión cuando se conoce el resultado. Combina competencia amistosa, estadísticas personales y consenso colectivo, sin apuestas, dinero, contratos negociables ni monedas virtuales.
 
-La aplicación está en español de Argentina, con diseño adaptable a celulares, tipografía amplia y acento ocre **`#CC7722`**. Este repositorio comparte el código y el proceso de desarrollo asistido por **Codex**, desde el brief inicial hasta las iteraciones de producto, diseño y contenido.
+Este repositorio comparte el código y el proceso de desarrollo asistido por **Codex CLI**, desde el brief inicial hasta las iteraciones de producto, diseño y contenido.
 
 ## Qué se puede hacer
 
