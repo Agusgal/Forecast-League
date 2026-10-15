@@ -19,7 +19,7 @@ Este repositorio comparte el código y el proceso de desarrollo asistido por **C
 - En Enterprise, organizar encuestas voluntarias y designar curadores, sin acceso automático a datos personales.
 - Administrar preguntas: revisar propuestas, crear borradores, publicar, cerrar, resolver o anular; asignar planes a cuentas registradas.
 
-La demo incluye nueve escenarios argentinos sobre clima en Córdoba, CABA, Mendoza y Rosario, dólar oficial, inflación, exportaciones, energías renovables y un amistoso ficticio de la Selección. **Son simulaciones, no noticias, cotizaciones ni pronósticos actuales.** Los enlaces a organismos sirven como referencias temáticas. Los perfiles y pronósticos precargados también están identificados como ficticios.
+La demo incluye nueve escenarios sobre clima en Córdoba, CABA, Mendoza y Rosario, dólar oficial, inflación, exportaciones, energías renovables y un amistoso ficticio de la Selección. **Son simulaciones, no noticias, cotizaciones ni pronósticos actuales.** Los enlaces a organismos sirven como referencias temáticas. Los perfiles y pronósticos precargados también están identificados como ficticios.
 
 ## Probarlo localmente
 
