@@ -59,15 +59,12 @@ El servidor de desarrollo escucha en `0.0.0.0`. Para probarlo desde un celular c
 
 El registro en `/signup` solicita usuario, correo, contraseña y confirmación, país de nacimiento, país de residencia, edad (años cumplidos) y sexo. Se puede elegir «Prefiero no decirlo» en sexo. Son opcionales el nivel educativo, ocupación, ciudad, barrio e ingreso anual estimado con su moneda. La edad se guarda al momento del registro, no se recalcula como una fecha de nacimiento.
 
-Los datos personales se validan también en el servidor. En demo se guardan dentro de la cuenta privada, separados del perfil público. En Supabase, la migración `202610130001_registration_details.sql` crea una tabla con RLS para que cada usuario solo pueda consultar sus propios datos. El alta transmite los datos mediante los metadatos privados de Supabase Auth y el trigger los copia transaccionalmente a esa tabla; no se incorporan al bootstrap ni a rankings. El país público del perfil sigue siendo un dato independiente. Las cuentas existentes pueden seguir entrando sin completar retroactivamente el formulario.
+Los datos personales se validan también en el servidor. En demo se guardan dentro de la cuenta privada, separados del perfil público. En Supabase, la migración `202610130001_registration_details.sql` crea una tabla con RLS para que cada usuario solo pueda consultar sus propios datos. El alta transmite los datos mediante los metadatos privados de Supabase Auth y el trigger los copia transaccionalmente a esa tabla. El país público del perfil sigue siendo un dato independiente. Las cuentas existentes pueden seguir entrando sin completar retroactivamente el formulario.
 
-Aplicá las tres migraciones en orden antes de usar todas las funciones del modo conectado. La API comprueba que la nueva migración esté disponible antes de crear una cuenta, para no perder los datos silenciosamente. El modo alojado sigue pendiente de validación con credenciales reales.
-
-En demo se crean nuevas rondas argentinas al vencer las anteriores, sin modificar fechas publicadas, pronósticos ni resultados. La renovación ocurre al acceder al almacenamiento local; no es una tarea programada ni una resolución automática. El listado muestra preguntas abiertas por defecto y permite incluir las cerradas y su historial. Las rondas siguen siendo simulaciones y no datos de actualidad. Esta renovación automática solo corresponde al adaptador local; las preguntas de Supabase se gestionan por administración.
 
 ## Preguntas, planes y comunidades
 
-Todas las cuentas empiezan en **Free**. Los planes se asignan manualmente por un administrador en `/moderation`; no hay cobros, suscripciones ni cambios de plan desde el cliente.
+Todas las cuentas empiezan en **Free**. Los planes se asignan manualmente por un administrador en `/moderation`, no hay cobros, suscripciones ni cambios de plan desde el cliente.
 
 | Plan | Propuestas por día | Revisión | Capacidades adicionales |
 | --- | ---: | --- | --- |
@@ -76,35 +73,30 @@ Todas las cuentas empiezan en **Free**. Los planes se asignan manualmente por un
 | Community | 10 | Prioritaria | Crear comunidades y ver estadísticas agregadas de las propias |
 | Enterprise | 10 | Prioritaria | Lo anterior, estadísticas globales agregadas, encuestas y curadores |
 
-El cupo se renueva a **medianoche de Argentina (UTC−3)**. Cada envío válido consume una unidad, aunque después se rechace; cambiar de plan no reinicia el uso del día. La prioridad queda fijada al enviar. La cola muestra primero las propuestas prioritarias y, dentro de cada grupo, las más antiguas. La aprobación es manual y **no se promete un tiempo de respuesta**.
+El cupo se renueva a **medianoche de Argentina (UTC−3)**. Cada envío válido consume una unidad, aunque después se rechace. Cambiar de plan no reinicia el uso del día. La prioridad queda fijada al enviar. La cola muestra primero las propuestas prioritarias y, dentro de cada grupo, las más antiguas. La aprobación es manual y **no se promete un tiempo de respuesta**.
 
-En `/proposals`, cada pregunta debe incluir fechas, fuente y criterios de resolución Sí/No. No aparece en el feed hasta que administración la aprueba. El administrador deja una nota al aprobar o rechazar; no puede aprobar una pregunta cuyo cierre ya pasó. La aprobación publica una única pregunta y conserva la propuesta y su revisión como historial. Las preguntas aprobadas son públicas, incluso cuando están asociadas a una comunidad.
+En `/proposals`, cada pregunta debe incluir fechas, fuente y criterios de resolución Sí/No. No aparece en el feed hasta que administración la aprueba. El administrador deja una nota al aprobar o rechazar. No puede aprobar una pregunta cuyo cierre ya pasó. La aprobación publica una única pregunta y conserva la propuesta y su revisión como historial. Las preguntas aprobadas son públicas, incluso cuando están asociadas a una comunidad.
 
-Las comunidades son espacios nuevos, separados de las ligas privadas existentes. Sus códigos y listas de miembros solo se muestran a sus integrantes. Un propietario Community o Enterprise ve actividad y precisión agregadas de sus miembros en las preguntas aprobadas de esa comunidad. Los promedios de Brier requieren al menos **cinco usuarios registrados con pronósticos resueltos**; cada categoría aplica también ese mínimo. Enterprise agrega una vista global con las mismas restricciones, sin exportar datos personales ni pronósticos individuales.
+Las comunidades son espacios nuevos, separados de las ligas privadas existentes. Sus códigos y listas de miembros solo se muestran a sus integrantes. Un propietario Community o Enterprise ve actividad y precisión agregadas de sus miembros en las preguntas aprobadas de esa comunidad. Los promedios de Brier requieren al menos **cinco usuarios registrados con pronósticos resueltos**. Cada categoría aplica también ese mínimo. Enterprise agrega una vista global con las mismas restricciones, sin exportar datos personales ni pronósticos individuales.
 
 El propietario Enterprise puede nombrar curadores entre los miembros. Pueden proponer preguntas para esa comunidad usando su propio cupo y aportar pronósticos mediante el flujo habitual. No obtienen aprobación automática ni permisos para operar con dinero. Si el propietario pierde Enterprise, se desactivan esas atribuciones de curación y las herramientas de encuestas.
 
-Las encuestas tienen propósito explícito, entre dos y seis opciones y fecha de cierre. Cada miembro elige voluntariamente si responde y confirma su consentimiento con una casilla inicialmente desmarcada. Solo el propietario Enterprise recibe los resultados agregados; la distribución se oculta hasta reunir **cinco respuestas activas**. Cada participante puede retirar su respuesta incluso después del cierre o de un cambio de plan. Se elimina su elección y se conserva un registro mínimo que impide volver a responder. El propietario no recibe respuestas identificadas ni datos del registro personal.
+Las encuestas tienen propósito explícito, entre dos y seis opciones y fecha de cierre. Cada miembro elige voluntariamente si responde y confirma su consentimiento con una casilla inicialmente desmarcada. Solo el propietario Enterprise recibe los resultados adicionales. La distribución se oculta hasta reunir **cinco respuestas activas**. Cada participante puede retirar su respuesta incluso después del cierre o de un cambio de plan. Se elimina su elección y se conserva un registro mínimo que impide volver a responder. El propietario no recibe respuestas identificadas ni datos del registro personal.
 
 ## Cómo se construyó con prompts
 
-El proyecto se desarrolló mediante una conversación iterativa. El primer prompt definió una visión amplia y restricciones concretas; los siguientes ajustaron el producto a partir de lo que se podía probar en el navegador. **No surgió de un único prompt ni todos los objetivos iniciales están implementados.**
+El proyecto se desarrolló mediante una conversación iterativa. En el primer prompt definió una visión amplia y restricciones concretas, specs y alcance del proyecto. Los siguientes prompts ajustaron el producto a partir de lo que se podía probar en el navegador y se fueron implementando distintos features de a uno. Para la elaboración del plan principales se utilizó ChatGPT Astra en modo Ultra, para los subsiguientes features se utilizo ChatGPT Luna en modo medio con eventuales cambios a ChatGPT Terra para validaciones más complejas.
 
 ### 1. Un brief con contexto, reglas y un primer recorrido verificable
 
-El pedido inicial asignó al asistente el rol de socio técnico, desarrollador full stack, diseñador y arquitecto. Después especificó:
+El pedido inicial asignó al agente el rol de socio técnico, desarrollador full stack, diseñador y arquitecto. Se especificaron:
 
-- **Producto y referencias:** accesibilidad de juegos casuales, pronósticos probabilísticos de Metaculus, progresión y comunidad de Chess.com, y hábitos diarios como Wordle.
-- **Límites:** ninguna apuesta; no presentar datos inventados como reales; no simular conexiones a servicios; no implementar pagos ni aplicaciones nativas en el MVP.
+- **Productos y páginas de referencias:** accesibilidad de juegos casuales, interfaz al estilo Polymarket, pronósticos probabilísticos de Metaculus, progresión y comunidad de Chess.com, y hábitos diarios como Wordle.
+- **Límites:** ninguna apuesta, no presentar datos inventados como reales, no simular conexiones a servicios, no implementar pagos ni aplicaciones nativas en el MVP.
 - **Stack y estructura:** Next.js, TypeScript estricto, Tailwind, componentes accesibles, Supabase, Zod y separación entre interfaz, dominio y persistencia.
 - **Reglas comprobables:** Brier score, última revisión válida antes del cierre, historial inmutable, criterios de resolución explícitos y consenso oculto hasta responder.
-- **Forma de trabajar:** inspeccionar el repositorio, proponer una arquitectura breve y comenzar a implementar inmediatamente.
+- **Forma de trabajar:** Seguir los guidelines del agent.md de Andrej Karpathy modificado. 
 
-Una instrucción literal que organizó el trabajo fue:
-
-> Home Feed → Question Detail → Probability Selection → Forecast Submission → Database Persistence → Confirmation.
-
-Se pidió completar ese recorrido primero y después sumar puntajes, consenso y ligas. Esto convirtió una visión grande en una primera funcionalidad que se podía probar de punta a punta.
 
 ### 2. Iteraciones cortas sobre el producto visible
 
