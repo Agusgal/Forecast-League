@@ -39,6 +39,7 @@ test("local signup preserves guest forecasts, hashes credentials, rotates sessio
     );
     const guestCookie = guestResponse.headers.get("set-cookie")!.split(";")[0];
     const guest = await guestResponse.json();
+    assert.equal(guest.user.isAdmin, false);
     const question = guest.questions.find(
       (row: { status: string }) => row.status === "PUBLISHED",
     );
@@ -59,8 +60,13 @@ test("local signup preserves guest forecasts, hashes credentials, rotates sessio
       username: "Test Forecaster",
       email: "FORECASTER@example.test",
       password: "local-test-password-2026",
+      personalData: { birthCountry: "AR", residenceCountry: "UY", age: 29, sex: "female", city: "Ciudad privada", neighborhood: "Barrio privado", education: "university", annualIncome: 123456, incomeCurrency: "USD" },
     };
     assert.equal((await post({ ...payload, isAdmin: true })).status, 400);
+    assert.equal((await post({ ...payload, personalData: undefined })).status, 400);
+    for (const patch of [{ age: -1 }, { age: 22.5 }, { birthCountry: "XX" }, { sex: "invalid" }, { annualIncome: -4 }, { incomeCurrency: undefined }, { privateRole: "admin" }]) {
+      assert.equal((await post({ ...payload, personalData: { ...payload.personalData, ...patch } })).status, 400);
+    }
     assert.equal((await post({ ...payload, password: "short" })).status, 400);
     assert.equal(
       (await post(payload, guestCookie, "https://untrusted.example")).status,
@@ -71,6 +77,7 @@ test("local signup preserves guest forecasts, hashes credentials, rotates sessio
     const user = (await created.json()).user;
     assert.equal(user.id, guest.user.id);
     assert.equal(user.isRegistered, true);
+    assert.equal(user.isAdmin, false);
     assert.equal(user.username, payload.username);
     assert.equal("email" in user, false);
     assert.equal("passwordHash" in user, false);
@@ -87,6 +94,7 @@ test("local signup preserves guest forecasts, hashes credentials, rotates sessio
     assert.equal(stored.accounts[0].email, "forecaster@example.test");
     assert.equal(stored.accounts[0].passwordHash.length, 128);
     assert.equal(stored.accounts[0].passwordSalt.length, 32);
+    assert.deepEqual(stored.accounts[0].personalData, payload.personalData);
     assert.equal(
       (await post({ ...payload, email: "forecaster@example.test" })).status,
       409,
@@ -128,6 +136,7 @@ test("local signup preserves guest forecasts, hashes credentials, rotates sessio
       0.67,
     );
     assert.equal(JSON.stringify(after).includes("passwordHash"), false);
+    for (const secret of ["personalData", "birthCountry", "annualIncome", "Ciudad privada", "Barrio privado"]) assert.equal(JSON.stringify(after).includes(secret), false);
     assert.equal(
       JSON.stringify(after).includes("forecaster@example.test"),
       false,

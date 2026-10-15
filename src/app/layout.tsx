@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./league-theme.css";
+import "./workspace-theme.css";
 export const metadata: Metadata = {
   title: "Forecast League — Pronosticá. Competí. Repetí.",
   description:

@@ -841,6 +841,7 @@ export function ProfileView({
             )}
           </div>
           <div className="profile-bottom">
+            <Link href="/proposals" className="text-button"><Plus size={16} /> Mis preguntas y plan</Link>
             {data.user.isAdmin && (
               <Link href="/admin" className="text-button">
                 <Settings2 size={16} /> Gestión de preguntas

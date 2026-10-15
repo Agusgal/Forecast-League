@@ -14,6 +14,7 @@ import type { Profile } from "@/domain/types";
 import { api } from "@/lib/utils";
 import { Brand } from "./visuals";
 import { Button } from "./ui/button";
+import { SignupDetails } from "./signup-details";
 
 export function AuthForm({
   initialSignup,
@@ -63,13 +64,28 @@ export function AuthForm({
     setMessage("");
     const form = new FormData(event.currentTarget);
     try {
+      if (signup && form.get("password") !== form.get("passwordConfirm"))
+        throw new Error("Las contraseñas no coinciden.");
+      const optional = Object.fromEntries(
+        ["education", "city", "neighborhood", "occupation", "incomeCurrency"].flatMap((key) => {
+          const value = String(form.get(key) ?? "").trim();
+          return value ? [[key, value]] : [];
+        }),
+      );
       const result = await api<{ user: Profile | null; message?: string }>(
         "auth",
         {
           action: signup ? "signup" : "login",
           email: String(form.get("email")).trim(),
           password: form.get("password"),
-          ...(signup ? { username: form.get("username") } : {}),
+          ...(signup ? {
+            username: form.get("username"),
+            personalData: {
+              birthCountry: form.get("birthCountry"), residenceCountry: form.get("residenceCountry"),
+              age: Number(form.get("age")), sex: form.get("sex"), ...optional,
+              ...(String(form.get("annualIncome") ?? "").trim() !== "" ? { annualIncome: Number(form.get("annualIncome")) } : {}),
+            },
+          } : {}),
         },
       );
       if (result.user) {
@@ -114,9 +130,10 @@ export function AuthForm({
         </div>
       )}
       <fieldset disabled={busy || !mode || !!message}>
+        {signup && <><h3 className="registration-account-heading"><span>01</span> Tu cuenta</h3><p className="registration-hint">Los campos con * son obligatorios.</p></>}
         {signup && (
           <label>
-            Usuario
+            Usuario *
             <input
               name="username"
               required
@@ -128,7 +145,7 @@ export function AuthForm({
           </label>
         )}
         <label>
-          Correo electrónico
+          Correo electrónico {signup ? "*" : ""}
           <input
             name="email"
             type="email"
@@ -139,7 +156,7 @@ export function AuthForm({
           />
         </label>
         <label>
-          Contraseña
+          Contraseña {signup ? "*" : ""}
           <input
             name="password"
             type="password"
@@ -150,6 +167,10 @@ export function AuthForm({
             placeholder={signup ? "Al menos 8 caracteres" : "Tu contraseña"}
           />
         </label>
+        {signup && <>
+          <label>Repetí la contraseña *<input name="passwordConfirm" type="password" required minLength={8} maxLength={128} autoComplete="new-password" placeholder="Volvé a escribir tu contraseña" /></label>
+          <SignupDetails />
+        </>}
         <Button type="submit" className="auth-submit">
           {busy
             ? "Un momento…"
@@ -194,7 +215,7 @@ export function AuthForm({
 }
 export function AuthScreen({ signup = false }: { signup?: boolean }) {
   return (
-    <div className="public-page auth-page">
+    <div className={`public-page auth-page ${signup ? "signup-page" : ""}`}>
       <header className="public-header">
         <Link href="/" aria-label="Inicio de Forecast League">
           <Brand />
@@ -242,7 +263,7 @@ export function AuthScreen({ signup = false }: { signup?: boolean }) {
           <h2>{signup ? "Sumate a la liga." : "Qué bueno verte."}</h2>
           <p>
             {signup
-              ? "Tu primer pronóstico te espera."
+              ? "Creá tu cuenta y contanos un poco sobre vos."
               : "¿Listo para tu próximo pronóstico?"}
           </p>
           <AuthForm initialSignup={signup} />

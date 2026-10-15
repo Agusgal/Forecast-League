@@ -12,6 +12,7 @@ import type {
   Question,
 } from "@/domain/types";
 import type { QuestionDraft } from "@/domain/schemas";
+import type { WorkspaceAction, WorkspaceState } from "@/domain/workspace";
 import { ApiFailure, invariant } from "./errors";
 import { stageResponseCookies } from "./response-cookies";
 
@@ -193,6 +194,8 @@ function databaseError(error: { message: string; code?: string } | null): void {
     throw new ApiFailure(403, "No tenés permiso para realizar esa acción.");
   if (error.code === "23505")
     throw new ApiFailure(409, "Este registro ya existe.");
+  if (error.code === "PT429")
+    throw new ApiFailure(429, "Alcanzaste el cupo diario de preguntas de tu plan.");
   if (
     error.code === "P0001" ||
     error.code === "22023" ||
@@ -245,6 +248,20 @@ export class SupabaseAdapter {
 
   respond(data: unknown, status = 200): NextResponse {
     return NextResponse.json(data, { status });
+  }
+
+  async workspace(): Promise<WorkspaceState> {
+    await this.user(false);
+    const result = await this.client.rpc("get_workspace");
+    databaseError(result.error);
+    return result.data as WorkspaceState;
+  }
+
+  async workspaceAction(input: WorkspaceAction): Promise<WorkspaceState> {
+    await this.user();
+    const result = await this.client.rpc("workspace_action", { p_input: input });
+    databaseError(result.error);
+    return result.data as WorkspaceState;
   }
 
   async user(required = true): Promise<Profile | null> {

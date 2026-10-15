@@ -1177,3 +1177,31 @@ input.probability-range {
   position: relative;
   z-index: 1;
 }
+
+/* Detailed onboarding keeps the established ochre identity and native controls. */
+.signup-page .auth-layout { align-items: start; gap: 56px; grid-template-columns: 0.8fr 1.3fr; }
+.signup-page .auth-intro { position: sticky; top: 48px; }
+.registration-block { border-top: 1px solid var(--border); padding-top: 24px; }
+.registration-block h3, .registration-account-heading { font-size: 20px; margin: 0 0 12px; }
+.registration-block h3 span, .registration-account-heading span { color: #a65513; margin-right: 8px; font-size: 14px; }
+.registration-block > p, .registration-hint, .registration-optional > p { color: #71685e; font-size: 14px; line-height: 1.6; margin-bottom: 18px; }
+.registration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.auth-form .registration-grid label { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.auth-form select { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: #fff; font: inherit; font-size: 16px; min-height: 48px; }
+.registration-optional { border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.registration-optional summary { cursor: pointer; font-weight: 650; line-height: 1.6; }
+.registration-optional summary span { font-weight: 400; color: #71685e; font-size: 13px; }
+.registration-optional[open] summary { margin-bottom: 16px; }
+.registration-privacy { background: #fff4e7; padding: 16px; border-radius: 10px; font-size: 13px; line-height: 1.7; color: #775437; }
+.archive-toggle { display: flex; align-items: center; gap: 10px; margin: 0 0 20px; font-size: 14px; color: #71685e; }
+.archive-toggle input { width: 18px; height: 18px; accent-color: #CC7722; }
+@media (max-width: 900px) { .signup-page .auth-layout { grid-template-columns: 1fr; gap: 28px; } .signup-page .auth-intro { position: static; } }
+@media (max-width: 540px) { .registration-grid { grid-template-columns: 1fr; } .registration-optional { padding: 14px; } }
+
+.sidebar { overflow-y: auto; }
+.workspace-nav-divider { display: block; margin: 20px 12px 8px; color: #817266; font-size: 11px; font-weight: 700; letter-spacing: 1.4px; }
+.forecast-heading-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .forecast-heading-actions { gap: 12px; }
+  .public-header nav { flex-wrap: wrap; justify-content: flex-end; gap: 10px 16px; }
+}

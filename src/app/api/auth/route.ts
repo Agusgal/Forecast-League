@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { personalDataSchema } from "@/domain/registration";
+import { invariant } from "@/server/errors";
 import { body, endpoint } from "@/server/http";
 import { throttleAuth } from "@/server/auth-throttle";
 import { DEMO_COOKIE, localStore, SESSION_MAX_AGE } from "@/server/local-store";
@@ -24,6 +26,7 @@ const authSchema = z.discriminatedUnion("action", [
       email: z.email().max(254),
       password: z.string().min(8).max(128),
       username: z.string().trim().min(2).max(32),
+      personalData: personalDataSchema,
     })
     .strict(),
 ]);
@@ -81,11 +84,14 @@ export const POST = endpoint(async (request) => {
     );
     return adapter.respond({ user: await adapter.user() });
   }
+  const readiness = await adapter.client.rpc("registration_ready");
+  invariant(!readiness.error && readiness.data === true, 503,
+    "El registro está en mantenimiento: falta aplicar la migración de datos personales.");
   const result = await adapter.client.auth.signUp({
     email: input.email,
     password: input.password,
     options: {
-      data: { username: input.username },
+      data: { username: input.username, personal_data: input.personalData },
       emailRedirectTo: new URL(
         "/auth/callback",
         request.headers.get("origin") ?? request.url,

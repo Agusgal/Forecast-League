@@ -4,7 +4,7 @@ The app works in an explicitly labeled local demo without credentials. A connect
 
 ## Initialize a development project
 
-1. Create a Supabase project, then run [`migrations/202610120001_forecast_league.sql`](./migrations/202610120001_forecast_league.sql) in its SQL editor. Apply this initial migration once to a fresh project. Alternatively, use the Supabase CLI to link the project and apply migrations.
+1. Create a Supabase project, then run [`migrations/202610120001_forecast_league.sql`](./migrations/202610120001_forecast_league.sql) in its SQL editor. Apply this initial migration once to a fresh project. Then apply [`migrations/202610130001_registration_details.sql`](./migrations/202610130001_registration_details.sql). Then apply [`migrations/202610140001_plans_and_communities.sql`](./migrations/202610140001_plans_and_communities.sql) for plans, proposals, communities and surveys. Existing projects apply only migrations not already applied, in timestamp order. It stores mandatory registration details separately with owner-only RLS and preserves existing accounts. Alternatively, use the Supabase CLI to link the project and apply migrations.
 2. Run [`seed.sql`](./seed.sql). It creates fifteen questions in Spanish, including nine simulated Argentine scenarios, marked `is_demo = true`, with deadlines relative to the current UTC day. It creates **no fabricated accounts, predictions, scores or community counts**. Re-running the seed does not alter published questions.
 3. Copy the project URL and public anon/publishable key into the environment variables described in the repository README. Never use the secret or service-role key as a public key.
 4. In Authentication → URL Configuration, add the local application URL and any LAN URL used on your phone. Configure the email authentication provider and redirect URLs for your development environment.
@@ -31,6 +31,8 @@ All timestamps are `timestamptz`; probabilities are fractions from `0.01` to `0.
 
 | Operation           | Contract                                                                                                                              |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Workspace projection | `get_workspace()` → private `WorkspaceState`; safe empty projection when signed out |
+| Workspace mutation | `workspace_action(p_input jsonb)` → updated `WorkspaceState`; registered accounts, action-specific plan/role checks |
 | Submit or revise    | `submit_forecast(p_question_id uuid, p_probability numeric, p_reasoning text default '')` → `forecasts` row                           |
 | Consensus           | `get_consensus(p_question_id uuid)` → `Consensus` JSON or `null` before the caller forecasts                                          |
 | Global accuracy     | `get_leaderboard()` → `LeaderboardEntry[]` JSON                                                                                       |
@@ -81,3 +83,21 @@ Back up the database and add project-appropriate email delivery, abuse/rate cont
 ## Email confirmation redirect
 
 Allow `http://localhost:3000/auth/callback` in Supabase Auth redirect URLs (and your LAN or deployed origin with the same path when used). Signup supplies this callback URL. The app exchanges a PKCE code, or verifies an `email` token hash if configured in your email template, then returns to `/forecasts`. Invalid or expired links return to `/login` with an explanation. Verify email delivery and confirmation against your own project before publishing.
+
+## Detailed registration
+
+New signups require `personalData` with ISO alpha-2 `birthCountry` and `residenceCountry`, integer `age` from 1 to 120 and `sex` (`female`, `male`, `intersex`, `other`, `undisclosed`). Optional fields and constraints are defined in `src/domain/registration.ts`. Income requires both an amount and currency. The API checks `registration_ready()` before calling Auth, so missing migrations fail before account creation.
+
+Signup passes `personal_data` through Auth user metadata. The protected signup trigger writes it to `registration_details` in the same transaction. Auth metadata is visible to its account owner and trusted Auth administrators; never serialize it into public profiles. The application exposes none of these fields in its public read models. RLS allows each authenticated user to select only their own details; anonymous access and client writes are not granted. Existing profiles have no backfilled or invented personal details.
+
+## Plans, proposals, communities and surveys
+
+The third migration adds `user_plans`, `question_proposals`, `communities`, `community_members`, `community_surveys` and `survey_responses`. All six tables have RLS enabled with direct privileges revoked from public, anon and authenticated. Security-definer RPCs use explicit projections, an empty search path and checked identities. Internal validation and analytics helpers cannot be called through the public API. Existing profiles and newly created accounts receive Free; only a protected administrator may assign another plan via the workspace action.
+
+Quota checks lock the actor's plan row and count all submissions in the current Argentine calendar day. Free allows one, other plans ten; rejections and plan changes do not erase usage. Review locks a pending proposal, records the decision and publishes exactly once. Priority is a submission snapshot, not a promise of review within a fixed time. Community questions become ordinary public questions after approval; membership lists and invite codes remain private to members.
+
+Community owners on Community/Enterprise receive community aggregates; Enterprise receives global activity/precision aggregates. Brier statistics require five registered people with resolved forecasts, including an independent threshold for each category. Survey choice counts are owner-only and suppressed until five active responses. No read model returns another person's personal registration details, raw forecast, reasoning or identified survey choice. The original public profiles and rankings retain their existing documented fields.
+
+Enterprise community owners may appoint curators and create surveys. Curators use their own proposal quota and normal moderation. Members explicitly consent to one survey response. Withdrawal clears the option and consent timestamp but retains a minimal uniqueness record to prevent repeated responses. Withdrawal remains allowed after closing or a plan downgrade. A downgrade disables premium mutations/results and stops new answers to that owner's surveys without deleting existing communities or historical proposals.
+
+The harness imports `tests/workspace.mjs` to test direct RPC requests as well as denied direct table access, forged fields, quota accounting, manual review, role changes, community isolation, small-sample suppression, consent and withdrawal. These are real PostgreSQL checks in PGlite, not a hosted Supabase integration test. Apply and verify the migration in the target project before enabling this feature there. The local file demo needs no SQL migration.

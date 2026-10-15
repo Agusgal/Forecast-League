@@ -25,10 +25,15 @@ import {
   scorePoints,
   selectScoringRevision,
 } from "@/domain/scoring";
+import { renewDemoQuestions } from "./renew-demo-questions";
+import { personalDataSchema, type PersonalData } from "@/domain/registration";
 import { upgradeDemoContent } from "./demo-content";
 import { invariant } from "./errors";
+import { applyWorkspaceAction, workspaceView, type LocalWorkspaceData } from "./local-workspace";
+import type { WorkspaceAction, WorkspaceState } from "@/domain/workspace";
 
 interface LocalAccount {
+  personalData?: PersonalData;
   userId: string;
   email: string;
   passwordSalt: string;
@@ -70,6 +75,7 @@ interface Score {
   scoredAt: string;
 }
 export interface LocalData {
+  workspace?: LocalWorkspaceData;
   demoContentRevision?: 1 | 2;
   version: 1;
   profiles: Profile[];
@@ -154,8 +160,9 @@ export class LocalStore {
       .then(async () => {
         const data = await this.read();
         const migrated = upgradeDemoContent(data, this.clock());
+        const renewed = renewDemoQuestions(data, this.clock());
         const value = change(data);
-        if (write || migrated) await this.write(data);
+        if (write || migrated || renewed) await this.write(data);
         return value;
       });
     queues.set(this.filename, operation);
@@ -181,11 +188,13 @@ export class LocalStore {
       401,
       "Tu sesión de demo venció. Actualizá la página para empezar de nuevo.",
     );
+    const isRegistered = (data.accounts ?? []).some(
+      (account) => account.userId === profile.id,
+    );
     return {
       ...profile,
-      isRegistered: (data.accounts ?? []).some(
-        (account) => account.userId === profile.id,
-      ),
+      isRegistered,
+      isAdmin: profile.isAdmin && isRegistered,
     };
   }
 
@@ -206,7 +215,7 @@ export class LocalStore {
         username: `Participante ${randomBytes(2).toString("hex").toUpperCase()}`,
         country: "Global",
         avatarColor: "#d5eb4b",
-        isAdmin: true,
+        isAdmin: false,
       };
       data.profiles.push(profile);
       data.sessions = data.sessions.filter(
@@ -259,9 +268,10 @@ export class LocalStore {
   }
 
   async createAccount(
-    input: { username: string; email: string; password: string },
+    input: { username: string; email: string; password: string; personalData: PersonalData },
     previousToken?: string,
   ): Promise<{ profile: Profile; token: string }> {
+    const personalData = personalDataSchema.parse(input.personalData);
     const email = input.email.trim().toLowerCase();
     const salt = randomBytes(16).toString("hex");
     const digest = (await derivePassword(input.password, salt, 64)) as Buffer;
@@ -289,15 +299,18 @@ export class LocalStore {
         username: input.username,
         country: "Global",
         avatarColor: "#CC7722",
-        isAdmin: true,
+        isAdmin: false,
       };
       profile.username = input.username;
+      // An old anonymous demo administrator must not gain real account privileges.
+      profile.isAdmin = false;
       if (!guest) data.profiles.push(profile);
       data.accounts.push({
         userId: profile.id,
         email,
         passwordSalt: salt,
         passwordHash: digest.toString("hex"),
+        personalData,
         createdAt: this.clock().toISOString(),
       });
       const token = this.accountSession(data, profile.id, previousToken);
@@ -593,14 +606,37 @@ export class LocalStore {
     }, true);
   }
 
+  async workspace(token?: string): Promise<WorkspaceState> {
+    return this.access((data) => {
+      let user: Profile | null = null;
+      if (token) {
+        try { user = this.profile(data, token); }
+        catch (error) {
+          if (!(error instanceof Error && "status" in error && error.status === 401)) throw error;
+        }
+      }
+      return workspaceView(data, user, this.clock());
+    });
+  }
+
+  async workspaceAction(token: string | undefined, input: WorkspaceAction): Promise<WorkspaceState> {
+    return this.access((data) => {
+      const user = this.profile(data, token);
+      const now = this.clock();
+      applyWorkspaceAction(data, user, input, now);
+      return workspaceView(data, user, now);
+    }, true);
+  }
+
   async participation(
     token?: string,
   ): Promise<
     { questionId: string; participants: number; revisions: number }[]
   > {
     return this.access((data) => {
+      const user = this.profile(data, token);
       invariant(
-        this.profile(data, token).isAdmin,
+        user.isAdmin && user.isRegistered,
         403,
         "Se requiere acceso de administración.",
       );
@@ -634,7 +670,7 @@ export class LocalStore {
   ): Promise<Question> {
     return this.access((data) => {
       const user = this.profile(data, token);
-      invariant(user.isAdmin, 403, "Se requiere acceso de administración.");
+      invariant(user.isAdmin && user.isRegistered, 403, "Se requiere acceso de administración.");
       if (input.action === "create") {
         invariant(input.question, 400, "Faltan los datos de la pregunta.");
         const question: Question = {

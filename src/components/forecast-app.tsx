@@ -23,6 +23,8 @@ import {
   Target,
   Trophy,
   Users,
+  Plus,
+  Building2,
   X,
 } from "lucide-react";
 import type { Bootstrap, Horizon, QuestionView } from "@/domain/types";
@@ -37,6 +39,7 @@ import {
 import { Avatar, Brand, ForecastArenaArt, QuestionArt } from "./visuals";
 import { AuthForm } from "./auth-screen";
 import { QuestionDetail } from "./question-detail";
+import { WorkspaceView } from "./workspace-view";
 import {
   AdminView,
   LeaguesView,
@@ -51,6 +54,13 @@ const navigation = [
   { path: "/world", label: "Consenso mundial", icon: Globe2 },
   { path: "/profile", label: "Mi perfil", icon: Target },
 ];
+const workspaceNavigation = [
+  { path: "/proposals", label: "Crear preguntas", icon: Plus, section: "questions" },
+  { path: "/communities", label: "Comunidades", icon: Users, section: "communities" },
+  { path: "/plans", label: "Planes", icon: Sparkles, section: "plans" },
+  { path: "/enterprise", label: "Enterprise", icon: Building2, section: "enterprise" },
+  { path: "/moderation", label: "Revisión y planes", icon: ShieldCheck, section: "moderation" },
+] as const;
 const horizons: { id: Horizon; label: string; sub: string }[] = [
   {
     id: "daily",
@@ -71,6 +81,7 @@ export function ForecastApp() {
   const [horizon, setHorizon] = useState<Horizon>("daily");
   const [category, setCategory] = useState("Todos los temas");
   const [search, setSearch] = useState("");
+  const [includeClosed, setIncludeClosed] = useState(false);
   const [auth, setAuth] = useState(false);
   const [help, setHelp] = useState(false);
   const [initials, setInitials] = useState<Record<string, number>>({});
@@ -110,7 +121,9 @@ export function ForecastApp() {
   const dailyDone = daily.filter((q) => q.forecast).length;
   const title =
     navigation.find((n) => n.path === activePath)?.label ??
+    workspaceNavigation.find((n) => n.path === activePath)?.label ??
     (activePath === "/admin" ? "Gestión de preguntas" : "Pronósticos");
+  const workspaceSection = workspaceNavigation.find((n) => n.path === activePath)?.section;
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
@@ -133,6 +146,12 @@ export function ForecastApp() {
               {path === "/leagues" && !!data?.leagues.length && (
                 <span className="nav-count">{data.leagues.length}</span>
               )}
+            </Link>
+          ))}
+          <span className="workspace-nav-divider">TU PARTICIPACIÓN</span>
+          {workspaceNavigation.filter((item) => item.section !== "moderation" || (user?.isAdmin && user?.isRegistered)).map(({ path, label, icon: Icon }) => (
+            <Link key={path} href={path} className={activePath === path ? "nav-item active" : "nav-item"}>
+              <Icon size={20} strokeWidth={1.65} /><span>{label}</span>
             </Link>
           ))}
         </nav>
@@ -244,12 +263,15 @@ export function ForecastApp() {
                         futuro.
                       </p>
                     </div>
+                    <div className="forecast-heading-actions">
+                    <Button asChild><Link href="/proposals"><Plus size={17} /> Agregar pregunta</Link></Button>
                     <button
                       className="text-button heading-help"
                       onClick={() => setHelp(true)}
                     >
                       Cómo jugar <CircleHelp size={16} />
                     </button>
+                    </div>
                   </div>
                   <div className="home-layout">
                     <section className="feed-column">
@@ -361,6 +383,7 @@ export function ForecastApp() {
                           </button>
                         )}
                       </div>
+                      <label className="archive-toggle"><input type="checkbox" checked={includeClosed} onChange={(event) => setIncludeClosed(event.target.checked)} /> Incluir preguntas cerradas e historial</label>
                       <div className="question-grid">
                         {data.questions
                           .slice()
@@ -382,6 +405,7 @@ export function ForecastApp() {
                           .filter(
                             (q) =>
                               q.status !== "DRAFT" &&
+                              (includeClosed || (q.status === "PUBLISHED" && Date.parse(q.opensAt) <= Date.now() && Date.parse(q.closesAt) > Date.now())) &&
                               q.horizon === horizon &&
                               (category === "Todos los temas" ||
                                 q.category === category) &&
@@ -400,6 +424,7 @@ export function ForecastApp() {
                       {!data.questions.some(
                         (q) =>
                           q.status !== "DRAFT" &&
+                              (includeClosed || (q.status === "PUBLISHED" && Date.parse(q.opensAt) <= Date.now() && Date.parse(q.closesAt) > Date.now())) &&
                           q.horizon === horizon &&
                           (category === "Todos los temas" ||
                             q.category === category) &&
@@ -522,6 +547,8 @@ export function ForecastApp() {
                     </aside>
                   </div>
                 </>
+              ) : workspaceSection ? (
+                <WorkspaceView key={workspaceSection} data={data} refresh={refresh} section={workspaceSection} />
               ) : activePath === "/leagues" ? (
                 <LeaguesView
                   data={data}

@@ -14,7 +14,10 @@ Este repositorio comparte el código y el proceso de desarrollo asistido por **C
 - Desbloquear el consenso de una pregunta después de responder: promedio, distribución e historial.
 - Consultar precisión, calibración, historial y clasificaciones globales o por país.
 - Crear ligas privadas, invitar amigos mediante código o enlace y comparar preguntas compartidas.
-- Administrar preguntas: crear borradores, publicar, cerrar, resolver o anular.
+- Proponer preguntas con un cupo diario por plan y seguir su revisión manual.
+- Crear comunidades, invitar miembros y consultar estadísticas agregadas según el plan.
+- En Enterprise, organizar encuestas voluntarias y designar curadores, sin acceso automático a datos personales.
+- Administrar preguntas: revisar propuestas, crear borradores, publicar, cerrar, resolver o anular; asignar planes a cuentas registradas.
 
 La demo incluye nueve escenarios argentinos sobre clima en Córdoba, CABA, Mendoza y Rosario, dólar oficial, inflación, exportaciones, energías renovables y un amistoso ficticio de la Selección. **Son simulaciones, no noticias, cotizaciones ni pronósticos actuales.** Los enlaces a organismos sirven como referencias temáticas. Los perfiles y pronósticos precargados también están identificados como ficticios.
 
@@ -41,11 +44,47 @@ Abrí [localhost:3000](http://localhost:3000). Podés explorar la demo o crear t
 | `/leaderboard` | Clasificaciones |
 | `/world` | Consenso colectivo |
 | `/profile` | Perfil e historial |
-| `/admin` | Administración de preguntas |
+| `/proposals` | Crear preguntas y seguir sus revisiones |
+| `/communities` | Comunidades, invitaciones y encuestas |
+| `/plans` | Planes, cupos y capacidades |
+| `/enterprise` | Estadísticas agregadas y herramientas Enterprise |
+| `/moderation` | Revisión de propuestas y asignación de planes (administración) |
+| `/admin` | Administración del ciclo de preguntas |
 
 Probá el recorrido completo: abrí una pregunta, leé sus criterios, enviá una probabilidad, observá el consenso y recargá. Tu pronóstico persiste. Podés revisarlo mientras la pregunta siga abierta. En la demo, el código **FUTURE** permite entrar a una liga de ejemplo.
 
 El servidor de desarrollo escucha en `0.0.0.0`. Para probarlo desde un celular conectado a la misma red, usá `http://IP_LOCAL_DE_TU_COMPUTADORA:3000`.
+
+## Registro completo y preguntas vigentes
+
+El registro en `/signup` solicita usuario, correo, contraseña y confirmación, país de nacimiento, país de residencia, edad (años cumplidos) y sexo. Se puede elegir «Prefiero no decirlo» en sexo. Son opcionales el nivel educativo, ocupación, ciudad, barrio e ingreso anual estimado con su moneda. La edad se guarda al momento del registro, no se recalcula como una fecha de nacimiento.
+
+Los datos personales se validan también en el servidor. En demo se guardan dentro de la cuenta privada, separados del perfil público. En Supabase, la migración `202610130001_registration_details.sql` crea una tabla con RLS para que cada usuario solo pueda consultar sus propios datos. El alta transmite los datos mediante los metadatos privados de Supabase Auth y el trigger los copia transaccionalmente a esa tabla; no se incorporan al bootstrap ni a rankings. El país público del perfil sigue siendo un dato independiente. Las cuentas existentes pueden seguir entrando sin completar retroactivamente el formulario.
+
+Aplicá las tres migraciones en orden antes de usar todas las funciones del modo conectado. La API comprueba que la nueva migración esté disponible antes de crear una cuenta, para no perder los datos silenciosamente. El modo alojado sigue pendiente de validación con credenciales reales.
+
+En demo se crean nuevas rondas argentinas al vencer las anteriores, sin modificar fechas publicadas, pronósticos ni resultados. La renovación ocurre al acceder al almacenamiento local; no es una tarea programada ni una resolución automática. El listado muestra preguntas abiertas por defecto y permite incluir las cerradas y su historial. Las rondas siguen siendo simulaciones y no datos de actualidad. Esta renovación automática solo corresponde al adaptador local; las preguntas de Supabase se gestionan por administración.
+
+## Preguntas, planes y comunidades
+
+Todas las cuentas empiezan en **Free**. Los planes se asignan manualmente por un administrador en `/moderation`; no hay cobros, suscripciones ni cambios de plan desde el cliente.
+
+| Plan | Propuestas por día | Revisión | Capacidades adicionales |
+| --- | ---: | --- | --- |
+| Free | 1 | Normal | Pronosticar y unirse a comunidades por invitación |
+| Pro | 10 | Prioritaria | Mayor cupo de propuestas |
+| Community | 10 | Prioritaria | Crear comunidades y ver estadísticas agregadas de las propias |
+| Enterprise | 10 | Prioritaria | Lo anterior, estadísticas globales agregadas, encuestas y curadores |
+
+El cupo se renueva a **medianoche de Argentina (UTC−3)**. Cada envío válido consume una unidad, aunque después se rechace; cambiar de plan no reinicia el uso del día. La prioridad queda fijada al enviar. La cola muestra primero las propuestas prioritarias y, dentro de cada grupo, las más antiguas. La aprobación es manual y **no se promete un tiempo de respuesta**.
+
+En `/proposals`, cada pregunta debe incluir fechas, fuente y criterios de resolución Sí/No. No aparece en el feed hasta que administración la aprueba. El administrador deja una nota al aprobar o rechazar; no puede aprobar una pregunta cuyo cierre ya pasó. La aprobación publica una única pregunta y conserva la propuesta y su revisión como historial. Las preguntas aprobadas son públicas, incluso cuando están asociadas a una comunidad.
+
+Las comunidades son espacios nuevos, separados de las ligas privadas existentes. Sus códigos y listas de miembros solo se muestran a sus integrantes. Un propietario Community o Enterprise ve actividad y precisión agregadas de sus miembros en las preguntas aprobadas de esa comunidad. Los promedios de Brier requieren al menos **cinco usuarios registrados con pronósticos resueltos**; cada categoría aplica también ese mínimo. Enterprise agrega una vista global con las mismas restricciones, sin exportar datos personales ni pronósticos individuales.
+
+El propietario Enterprise puede nombrar curadores entre los miembros. Pueden proponer preguntas para esa comunidad usando su propio cupo y aportar pronósticos mediante el flujo habitual. No obtienen aprobación automática ni permisos para operar con dinero. Si el propietario pierde Enterprise, se desactivan esas atribuciones de curación y las herramientas de encuestas.
+
+Las encuestas tienen propósito explícito, entre dos y seis opciones y fecha de cierre. Cada miembro elige voluntariamente si responde y confirma su consentimiento con una casilla inicialmente desmarcada. Solo el propietario Enterprise recibe los resultados agregados; la distribución se oculta hasta reunir **cinco respuestas activas**. Cada participante puede retirar su respuesta incluso después del cierre o de un cambio de plan. Se elimina su elección y se conserva un registro mínimo que impide volver a responder. El propietario no recibe respuestas identificadas ni datos del registro personal.
 
 ## Cómo se construyó con prompts
 
@@ -76,6 +115,7 @@ Se pidió completar ese recorrido primero y después sumar puntajes, consenso y 
 | Completar el ingreso | Comprobar que funcionaran la landing y la creación de usuarios | Landing pública, registro e inicio de sesión |
 | Definir la identidad | “Now lets change the polymarket blue to an ochre yellow: #CC7722” | Color ocre como acento visual |
 | Adaptar idioma y contenido | “Quiero que traduzcas al español todo, y agrega predicciones ejemplo relevantes para argentina.” | Interfaz en español argentino, formato local y escenarios argentinos simulados |
+| Incorporar participación por planes | Crear preguntas con cupos Free/Pro, comunidades y funciones Enterprise; después aclarar privacidad, revisión y curadores | Propuestas moderadas, planes asignados por administración, comunidades, agregados y encuestas con consentimiento |
 | Compartir el trabajo | Publicar el repositorio y explicar cómo se armaron los prompts | Este README y la documentación del proceso |
 
 Los fragmentos entre comillas son extractos del usuario; el resto de la tabla resume los pedidos y sus resultados. Se omiten credenciales y datos personales. Las instrucciones de continuación permitieron completar el trabajo en curso, sin reemplazar el objetivo inicial.
@@ -110,9 +150,9 @@ Las clasificaciones globales son exploratorias porque cada persona puede respond
 
 Sin variables de Supabase, los datos se guardan en `.data/forecast-league.json`. Las cuentas usan hashes de contraseña con salt y scrypt; las sesiones usan cookies HttpOnly y SameSite. El registro convierte el perfil invitado en una cuenta, preservando sus pronósticos y ligas. Los correos locales no se verifican ni reciben mensajes.
 
-**Este modo es para desarrollo en una red de confianza:** todos los perfiles locales tienen acceso a la administración para explorar el ciclo completo. La persistencia en archivo está pensada para un único proceso, no para un despliegue público o varias instancias.
+**Este modo es para desarrollo en una red de confianza.** Las cuentas nuevas y los invitados no son administradores. Se conservan los administradores registrados existentes; los antiguos invitados con esa marca dejan de tener permisos efectivos. Para inicializar un administrador en una demo vacía, el operador debe detener el servidor, respaldar el archivo y establecer `isAdmin: true` únicamente en el perfil cuyo `id` corresponda a una cuenta registrada en `accounts`. No existe una API pública para autoconcederse ese rol. La persistencia en archivo está pensada para un único proceso, no para un despliegue público o varias instancias.
 
-Los plazos de los ejemplos se fijan al generarlos y no se renuevan al recargar. Para empezar otra demo cuando expiren, detené el servidor y mové el archivo de datos a una copia de respaldo antes de reiniciar. También podés elegir otro archivo mediante `FORECAST_DATA_PATH`.
+Los plazos de cada ronda se fijan al generarla y no cambian al recargar. Las rondas vencidas se conservan; se agregan otras nuevas. Para empezar otra demo cuando expiren, detené el servidor y mové el archivo de datos a una copia de respaldo antes de reiniciar. También podés elegir otro archivo mediante `FORECAST_DATA_PATH`.
 
 ### Supabase
 
@@ -127,7 +167,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-clave-publica-anon-o-publishable
 ```
 
-Seguí la [guía de Supabase](supabase/README.md) para aplicar la migración, cargar preguntas de ejemplo, configurar la confirmación por correo y asignar un administrador. Usá únicamente una clave pública; nunca una clave secreta o `service_role`. Reiniciá el servidor después de cambiar la configuración.
+Seguí la [guía de Supabase](supabase/README.md) para aplicar las migraciones, cargar preguntas de ejemplo, configurar la confirmación por correo y asignar un administrador. Usá únicamente una clave pública; nunca una clave secreta o `service_role`. Reiniciá el servidor después de cambiar la configuración.
 
 El modo conectado no importa automáticamente las cuentas locales ni fabrica participantes. **No se validó contra un proyecto Supabase alojado**: sus pruebas de transporte usan mocks y las de PostgreSQL usan PGlite. La autenticación real, el correo y la configuración del despliegue requieren verificación en el proyecto de destino.
 
@@ -155,9 +195,9 @@ pnpm test
 pnpm exec next build --webpack
 ```
 
-Durante el desarrollo se completaron **28 pruebas unitarias y de integración**, el chequeo estricto de TypeScript, una compilación de producción con Webpack y **11 comprobaciones de PostgreSQL**. El harness opcional de base de datos y sus límites se explican en [supabase/README.md](supabase/README.md#authorization-and-verification).
+La verificación incluye pruebas unitarias y de integración, chequeo estricto de TypeScript, compilación de producción con Webpack y comprobaciones de PostgreSQL. El harness opcional de base de datos y sus límites se explican en [supabase/README.md](supabase/README.md#authorization-and-verification).
 
-Las pruebas cubren, entre otros casos, Brier, revisiones y cierre, persistencia, propiedad de sesiones, autenticación, ligas, ciclo de preguntas, localización y permisos SQL. La compilación predeterminada también está disponible con `pnpm build`; para ejecutar una compilación terminada, usá `pnpm start`.
+Las pruebas cubren, entre otros casos, Brier, revisiones y cierre, persistencia, propiedad de sesiones, autenticación, ligas, ciclo de preguntas, localización, cupos concurrentes, revisión y publicación, cambios de plan, comunidades, consentimiento y retiro de encuestas, supresión de muestras pequeñas y permisos SQL. La compilación predeterminada también está disponible con `pnpm build`; para ejecutar una compilación terminada, usá `pnpm start`.
 
 ## Alcance actual
 

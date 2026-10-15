@@ -21,6 +21,7 @@ export default function Page() {
             Cómo funciona
           </a>
           <Link href="/login">Iniciar sesión</Link>
+          <Link href="/plans">Planes</Link>
           <Link href="/signup" className="solid-link">
             Sumate a la liga <ArrowRight size={17} />
           </Link>

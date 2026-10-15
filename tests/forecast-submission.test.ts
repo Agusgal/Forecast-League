@@ -8,6 +8,17 @@ import { LocalStore, type LocalData } from "../src/server/local-store";
 import { ApiFailure } from "../src/server/errors";
 import { protectMutation } from "../src/server/http";
 
+async function adminFixture(store: LocalStore, filename: string) {
+  const account = await store.createAccount({
+    username: "Test admin", email: "admin@example.test", password: "test-admin-password",
+    personalData: { birthCountry: "AR", residenceCountry: "AR", age: 30, sex: "undisclosed" },
+  });
+  const data = JSON.parse(await readFile(filename, "utf8")) as LocalData;
+  data.profiles.find((profile) => profile.id === account.profile.id)!.isAdmin = true;
+  await writeFile(filename, JSON.stringify(data));
+  return account;
+}
+
 async function fixture(
   run: (
     store: LocalStore,
@@ -183,7 +194,7 @@ test("parallel submissions serialize updates and keep a strict revision order", 
 
 test("manual resolution persists a score from the last valid forecast and freezes published criteria", async () => {
   await fixture(async (store, filename) => {
-    const session = await store.ensureSession();
+    const session = await adminFixture(store, filename);
     const question = (await store.bootstrap(session.token)).questions.find(
       (row) => row.status === "PUBLISHED",
     )!;
@@ -329,7 +340,7 @@ test("cookie-authenticated mutations reject cross-origin and form submissions", 
 
 test("participation auditing is confined to administrator sessions", async () => {
   await fixture(async (store, filename) => {
-    const admin = await store.ensureSession();
+    const admin = await adminFixture(store, filename);
     assert.ok(
       (await store.participation(admin.token)).every(
         (row) => row.participants === 8 && row.revisions === 24,

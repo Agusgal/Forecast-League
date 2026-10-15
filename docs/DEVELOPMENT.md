@@ -40,13 +40,13 @@ Leave both Supabase variables empty to use the demo. Restart the development ser
 2. Submit it, optionally with reasoning. A server-created session owns the forecast; the server validates the deadline and writes it to persistent storage.
 3. See confirmation and the newly unlocked consensus, then reload to confirm persistence. Submit a revision before the deadline; every previous version remains in the audit history.
 4. Edit your profile, create a private league, or join the fictional example league with code **FUTURE**. Share a league's invitation link/code with another browser or phone session.
-5. In the local demo, open **Question studio** from the desktop sidebar or your profile, or visit **/admin**. Create a draft, publish it, forecast, close it, then resolve Yes/No to see Brier scoring and profile statistics. Published criteria cannot be edited. Void an ambiguous question instead.
+5. With a registered administrator account, open **Question studio** from the desktop sidebar or your profile, or visit **/admin**. Create a draft, publish it, forecast, close it, then resolve Yes/No to see Brier scoring and profile statistics. Published criteria cannot be edited. Void an ambiguous question instead.
 
 The first vertical slice is **Landing → signup or demo → forecast feed → question detail → probability selection → server validation → persistent submission → confirmation and consensus**. The prototype also includes four time horizons, forecast revisions, local account signup/sign-in and connected email authentication, user profiles, accuracy/calibration, global and country rankings, private weekly/monthly leagues, world consensus, and manual administration.
 
 ## Local demo behavior
 
-With neither Supabase environment variable set, the app initializes **`.data/forecast-league.json`** on the first bootstrap request. Questions, fictional profiles/forecasts, your session, revisions, league memberships and new resolution scores survive page refreshes and server restarts. Fixture deadlines are generated once; restarting the server does not move them.
+With neither Supabase environment variable set, the app initializes **`.data/forecast-league.json`** on the first bootstrap request. Questions, fictional profiles/forecasts, your session, revisions, league memberships and new resolution scores survive page refreshes and server restarts. Each round deadline is immutable. Local demo access adds a fresh Argentine round when the previous one expires, retaining all history.
 
 The demo is explicitly labeled throughout the product. Its eight fictional forecasters, scenarios and completed outcomes are illustrative data, not real community statistics or reports about real events. Reference links describe the kinds of authoritative sources a real question could use. Your new profile starts with no invented forecasts, accuracy or achievements.
 
@@ -54,13 +54,13 @@ The public landing page is at `/`, the feed at `/forecasts`, and account pages a
 
 Starting a fresh guest session creates a new profile and keeps the old audit history. Registered profiles offer **Sign out**, then can sign in again. Local accounts remain a demo feature; use Supabase for hosted, verified email authentication.
 
-All local demo profiles have administrator access to make the lifecycle explorable. **Keep demo mode on a trusted development network; it is not a public production backend.** The file adapter serializes operations in one Node process and writes with atomic file replacement. It is unsuitable for multiple server processes, serverless instances or simultaneous deployments sharing a file. Use Supabase for hosted persistence and real authentication.
+New local guests and registered accounts are not administrators. Existing registered administrators retain their role; a legacy guest administrator flag grants no effective privileges. A trusted local operator can bootstrap an administrator by stopping the server, backing up the data file and setting `isAdmin` only on the profile ID belonging to the intended registered entry in `accounts`. No public endpoint grants this role. **Keep demo mode on a trusted development network; it is not a public production backend.** The file adapter serializes operations in one Node process and writes with atomic file replacement. It is unsuitable for multiple server processes, serverless instances or simultaneous deployments sharing a file. Use Supabase for hosted persistence and real authentication.
 
 To regenerate expired fixtures, stop the server and move `.data/forecast-league.json` aside as a backup, then restart and refresh. This starts a separate demo dataset; the old file retains your previous data. `FORECAST_DATA_PATH` can select a different absolute data-file path. The data directory and environment files are Git-ignored.
 
 ## Connect Supabase
 
-Follow **[supabase/README.md](../supabase/README.md)** to apply the initial migration, seed demonstration questions, configure email authentication, and designate an administrator.
+Follow **[supabase/README.md](../supabase/README.md)** to apply all migrations in order, seed demonstration questions, configure email authentication, and designate an administrator.
 
 Set both values in `.env.local`:
 
@@ -84,6 +84,8 @@ src/components/ui/       Reusable accessible UI primitives
 src/domain/types.ts      Client-independent models and API read models
 src/domain/schemas.ts    Shared Zod validation contracts
 src/domain/scoring.ts    Pure scoring, ranking, calibration and consensus logic
+src/domain/workspace.ts  Plan capabilities, quota clock and strict participation contracts
+src/server/local-workspace.ts  Local proposals, communities, surveys and private projections
 src/domain/seed.ts       Clearly identified local demonstration fixtures
 src/server/              Session handling, request validation and data adapters
 supabase/migrations/     Relational schema, constraints, RLS and transactional RPCs
@@ -103,10 +105,12 @@ All mutations accept `Content-Type: application/json`, use the current session a
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/bootstrap`        | `Bootstrap`: mode, current user, questions, own forecasts, gated consensus, leagues, rankings, personal stats                          |
 | `POST /api/forecasts`       | `{ questionId, probability, reasoning? }` → `{ forecast }`; submit or revise                                                           |
+| `GET /api/workspace`        | `WorkspaceState`: private plan, quota, own proposals, memberships, permitted aggregates and admin-only review queue |
+| `POST /api/workspace`       | `WorkspaceAction` → updated `WorkspaceState`; strict discriminated contract in `src/domain/workspace.ts` |
 | `POST /api/profile`         | `{ username, country }` → `{ user }`                                                                                                   |
 | `GET /api/auth`             | Current account and mode, without creating a guest session                                                                             |
 | `GET /auth/callback`        | Exchanges a Supabase confirmation code and redirects to the feed                                                                       |
-| `POST /api/auth`            | `{ action: "login", email, password }`, `{ action: "signup", email, password, username }`, or `{ action: "logout" }`                   |
+| `POST /api/auth`            | `{ action: "login", email, password }`, `{ action: "signup", email, password, username, personalData }`, or `{ action: "logout" }`                   |
 | `POST /api/leagues`         | `{ name, description?, period: "weekly" \| "monthly" }` → `{ league }`                                                                 |
 | `POST /api/leagues/join`    | `{ code }` → `{ league }`; repeated joins do not duplicate membership                                                                  |
 | `GET /api/admin/questions`  | Administrator-only `{ participation: [{ questionId, participants, revisions }] }`                                                      |
@@ -115,6 +119,20 @@ All mutations accept `Content-Type: application/json`, use the current session a
 Lifecycle actions are `publish`, `close`, `resolve`, `void`, and `cancel`; only `resolve` accepts an `outcome` of `0` or `1`. Draft creation/editing accepts the full editable record defined by `questionDraftSchema`; `isDemo`, status, ID and outcome are server-owned. Published wording, source, criteria and dates are immutable.
 
 Bootstrap never includes another person's individual forecasts or reasoning. Before the current user submits on a question, its `consensus` is `null`, including participant counts and distribution/history. The separate administrator audit intentionally exposes counts, not individual predictions, for moderation.
+
+## Participation and plan authorization
+
+The five screens `/proposals`, `/communities`, `/plans`, `/enterprise` and `/moderation` use one private workspace read model. The public plan catalogue needs no account. Every mutation needs a registered account; administrative review and plan assignment additionally require the protected administrator role. Plans are stored separately from public profiles and default to Free.
+
+`POST /api/workspace` accepts `propose`, `review`, `set_plan`, `create_community`, `join_community`, `set_curator`, `create_survey`, `answer_survey` and `withdraw_survey`. Exact fields and limits live in the Zod discriminated union. Local actions run inside the same serialized file transaction as their updated projection; Supabase executes them in `workspace_action(jsonb)` with database validation and row locks. Caller-supplied role, priority, status, ownership and timestamps are rejected. Daily quota exhaustion returns HTTP 429.
+
+Free allows one proposal per Argentine calendar day; Pro, Community and Enterprise allow ten. A plan-row lock serializes PostgreSQL quota use. All submissions count, including rejected proposals, and plan changes do not reset usage. Submission plan/priority are immutable snapshots. Review is manual, priority first then oldest first, with no SLA. Approval locks the proposal and creates/publishes one immutable question atomically; expired submissions cannot be approved. Communities group public approved questions and do not change existing league access or scoring.
+
+Community/Enterprise owners see aggregates for registered members on community-linked approved questions. Only Enterprise sees platform-wide aggregates. Precision requires five distinct registered resolved forecasters, separately at the global/community and category levels; open forecasts count only as activity. Neither projection includes raw forecasts, reasoning, private registration details or identified survey answers. Counts can remain visible below the precision threshold; this is a minimum cohort rule, not a differential-privacy guarantee.
+
+Enterprise owners may appoint existing members as curators. Curators use their own plan quota, remain subject to moderation and forecast through the ordinary question UI. No trading or financial privileges exist. Enterprise owners may create single-choice surveys with a stated purpose, 2–6 distinct choices and a future close. Members must explicitly consent; only the owner's active Enterprise plan reveals aggregated results, suppressed below five active responses. Withdrawal clears the choice and consent timestamp even after closing or losing membership/plan access; a tombstone prevents re-answering. Downgrades preserve data while removing premium actions and aggregates. New survey answers require the owner's Enterprise plan to remain active.
+
+The local adapter implements the same permissions. New PostgreSQL tables have RLS enabled and no direct anon/authenticated grants; only explicit RPC projections expose permitted data. Existing protected administrators can assign plans in `/moderation`. This prototype has no billing, plan purchase, guaranteed approval deadline or automatic publication.
 
 ## Scoring and fair comparisons
 
@@ -144,7 +162,7 @@ Tests cover Brier scoring and last-valid-revision selection, aggregate weighting
 
 For a local production-build check, run `npm run build` then `npm start`. Use `npm run dev` for the documented HTTP phone-preview workflow. This prototype has not been operated as a public production service. Native apps, billing, OAuth, password recovery, verified skill ratings, regional comparison analytics, and automated question ingestion/resolution are outside this first version.
 
-Verification completed during implementation: 28 unit/integration tests, strict TypeScript, a production build with `next build --webpack`, and the optional PostgreSQL harness. Browser checks verified phone layout, forecast submission/revision/reload, consensus unlock, league creation, and profile editing. Admin persistence, lifecycle and resolution were covered by integration and PostgreSQL tests.
+Verification commands include the unit/integration suite, strict TypeScript, a production build with `next build --webpack`, and the optional PostgreSQL harness. Workspace regression tests cover quota races and midnight boundaries, privileged operations, publication, privacy thresholds and consent withdrawal. Browser checks verified phone layout, forecast submission/revision/reload, consensus unlock, league creation, and profile editing. Admin persistence, lifecycle and resolution were covered by integration and PostgreSQL tests.
 
 ## Español y ejemplos argentinos
 
@@ -153,3 +171,5 @@ La interfaz usa español de Argentina (`es-AR`), fechas en horario argentino y c
 La demo local incluye nueve escenarios argentinos simulados: temperatura en Córdoba y Mendoza, lluvia en CABA, ráfagas en Rosario, dólar oficial mayorista, un amistoso ficticio de la Selección, IPC mensual, generación renovable y exportaciones. Sus umbrales, partidos y datos no son noticias ni cotizaciones actuales. Las fuentes enlazadas son referencias temáticas.
 
 Una actualización local única traduce los ejemplos originales y agrega las preguntas argentinas sin reemplazar cuentas, sesiones, pronósticos, versiones, puntajes ni plazos existentes. Los plazos nuevos se fijan al agregar las preguntas y no cambian al recargar. Se conserva el contenido personalizado. `supabase/seed.sql` incluye ejemplos en español y las nueve simulaciones argentinas para nuevas cargas conectadas; no modifica preguntas ya publicadas.
+
+Detailed signup fields, private storage and the additional migration are documented in the [main README](../README.md#registro-completo-y-preguntas-vigentes).

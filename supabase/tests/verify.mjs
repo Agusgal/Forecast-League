@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import assert from "node:assert/strict";
+import { verifyWorkspace } from "./workspace.mjs";
 
 // Install the optional test runtime outside the app; see ../README.md.
 // A fresh in-memory database is used, never a hosted Supabase project.
@@ -65,6 +66,9 @@ grant usage on schema public,auth to anon,authenticated;
     "PASS migration and idempotent question-only seed execute on PostgreSQL",
   );
 
+  await db.exec(await readFile(new URL("../migrations/202610130001_registration_details.sql", import.meta.url), "utf8"));
+  await db.exec(`alter table auth.users alter column raw_user_meta_data set default
+    '{"personal_data":{"birthCountry":"AR","residenceCountry":"AR","age":28,"sex":"undisclosed"}}'::jsonb`);
   const a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     b = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     admin = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
@@ -75,7 +79,7 @@ grant usage on schema public,auth to anon,authenticated;
   );
   const newcomer = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   await db.query(
-    `insert into auth.users(id,email,raw_user_meta_data) values($1,$2,'{"is_admin":true,"role":"admin"}')`,
+    `insert into auth.users(id,email,raw_user_meta_data) values($1,$2,'{"is_admin":true,"role":"admin","personal_data":{"birthCountry":"AR","residenceCountry":"UY","age":25,"sex":"male","city":"Private City","annualIncome":1000,"incomeCurrency":"USD"}}')`,
     [newcomer, "new@test.test"],
   );
   assert.equal(
@@ -111,6 +115,23 @@ grant usage on schema public,auth to anon,authenticated;
     assert.ok(didThrow, `Must reject: ${sql}`);
   };
 
+  await rejects("insert into auth.users(id,email,raw_user_meta_data) values(gen_random_uuid(),'missing@example.test','{}')", [], /obligatorios/);
+  await rejects(`insert into auth.users(id,email,raw_user_meta_data) values(gen_random_uuid(),'invalid@example.test',
+    '{"personal_data":{"birthCountry":"XX","residenceCountry":"AR","age":-5,"sex":"male"}}')`);
+  await actor(a);
+  const privateRows = (await db.query("select * from public.registration_details")).rows;
+  assert.equal(privateRows.length, 1);
+  assert.equal(privateRows[0].user_id, a);
+  await rejects("update public.registration_details set age_at_registration=99", [], /permission denied/);
+  await actor(admin);
+  assert.equal((await db.query("select * from public.registration_details where user_id=$1", [newcomer])).rows.length, 0);
+  await actor(newcomer);
+  assert.equal((await db.query("select annual_income from public.registration_details")).rows[0].annual_income, "1000");
+  assert.equal((await db.query("select country from public.profiles where id=$1", [newcomer])).rows[0].country, "Global");
+  await actor(null, "anon");
+  assert.equal(await result("select public.registration_ready() as result"), true);
+  await rejects("select * from public.registration_details", [], /permission denied/);
+  console.log("PASS required signup data, owner-only personal information and no public residence leakage");
   await actor(null, "anon");
   assert.equal(
     (await db.query("select * from public.questions")).rows.length,
@@ -549,6 +570,9 @@ grant usage on schema public,auth to anon,authenticated;
   console.log(
     "PASS security-definer object resolution resists caller search_path shadowing",
   );
+  await db.exec("reset role; set search_path=public");
+  await db.exec(await readFile(new URL("../migrations/202610140001_plans_and_communities.sql", import.meta.url), "utf8"));
+  await verifyWorkspace(db, { actor, result, rejects, a, b, admin, newcomer, tieA, tieB });
 } finally {
   await db.close();
 }
