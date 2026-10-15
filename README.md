@@ -139,7 +139,7 @@ Las clasificaciones globales son exploratorias porque cada persona puede respond
 
 ### Demo local
 
-Sin variables de Supabase, los datos se guardan en `.data/forecast-league.json`. Las cuentas usan hashes de contraseña con salt y scrypt; las sesiones usan cookies HttpOnly y SameSite. El registro convierte el perfil invitado en una cuenta, preservando sus pronósticos y ligas. Los correos locales no se verifican ni reciben mensajes.
+Sin variables de Supabase, los datos se guardan en `.data/forecast-league.json`. Las cuentas usan hashes de contraseña con salt y scrypt. Las sesiones usan cookies HttpOnly y SameSite. El registro convierte el perfil invitado en una cuenta, preservando sus pronósticos y ligas. 
 
 **Este modo es para desarrollo en una red de confianza.** Las cuentas nuevas y los invitados no son administradores. Se conservan los administradores registrados existentes; los antiguos invitados con esa marca dejan de tener permisos efectivos. Para inicializar un administrador en una demo vacía, el operador debe detener el servidor, respaldar el archivo y establecer `isAdmin: true` únicamente en el perfil cuyo `id` corresponda a una cuenta registrada en `accounts`. No existe una API pública para autoconcederse ese rol. La persistencia en archivo está pensada para un único proceso, no para un despliegue público o varias instancias.
 
@@ -159,8 +159,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-clave-publica-anon-o-publishable
 ```
 
 Seguí la [guía de Supabase](supabase/README.md) para aplicar las migraciones, cargar preguntas de ejemplo, configurar la confirmación por correo y asignar un administrador. Usá únicamente una clave pública; nunca una clave secreta o `service_role`. Reiniciá el servidor después de cambiar la configuración.
-
-El modo conectado no importa automáticamente las cuentas locales ni fabrica participantes. **No se validó contra un proyecto Supabase alojado**: sus pruebas de transporte usan mocks y las de PostgreSQL usan PGlite. La autenticación real, el correo y la configuración del despliegue requieren verificación en el proyecto de destino.
 
 ## Arquitectura
 
@@ -189,9 +187,3 @@ pnpm exec next build --webpack
 La verificación incluye pruebas unitarias y de integración, chequeo estricto de TypeScript, compilación de producción con Webpack y comprobaciones de PostgreSQL. El harness opcional de base de datos y sus límites se explican en [supabase/README.md](supabase/README.md#authorization-and-verification).
 
 Las pruebas cubren, entre otros casos, Brier, revisiones y cierre, persistencia, propiedad de sesiones, autenticación, ligas, ciclo de preguntas, localización, cupos concurrentes, revisión y publicación, cambios de plan, comunidades, consentimiento y retiro de encuestas, supresión de muestras pequeñas y permisos SQL. La compilación predeterminada también está disponible con `pnpm build`; para ejecutar una compilación terminada, usá `pnpm start`.
-
-## Alcance actual
-
-Es un prototipo funcional, no un servicio operado en producción. Las competencias oficiales tienen una base de esquema, pero todavía no cuentan con inscripción, participantes congelados ni tablas finales. También quedan fuera de esta versión las aplicaciones nativas, pagos, OAuth, recuperación de contraseña, resolución automática de preguntas y un rating de habilidad validado.
-
-El repositorio excluye `.env`, datos locales, sesiones, dependencias instaladas y archivos generados. Publicar el código en GitHub no despliega automáticamente la aplicación.
