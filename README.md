@@ -108,9 +108,8 @@ El pedido inicial asignó al agente el rol de socio técnico, desarrollador full
 | Definir la identidad | “Now lets change the polymarket blue to an ochre yellow: #CC7722” | Color ocre como acento visual |
 | Adaptar idioma y contenido | “Quiero que traduzcas al español todo, y agrega predicciones ejemplo relevantes para argentina.” | Interfaz en español argentino, formato local y escenarios argentinos simulados |
 | Incorporar participación por planes | Crear preguntas con cupos Free/Pro, comunidades y funciones Enterprise; después aclarar privacidad, revisión y curadores | Propuestas moderadas, planes asignados por administración, comunidades, agregados y encuestas con consentimiento |
-| Compartir el trabajo | Publicar el repositorio y explicar cómo se armaron los prompts | Este README y la documentación del proceso |
 
-Los fragmentos entre comillas son extractos del usuario; el resto de la tabla resume los pedidos y sus resultados. Se omiten credenciales y datos personales. Las instrucciones de continuación permitieron completar el trabajo en curso, sin reemplazar el objetivo inicial.
+Los fragmentos entre comillas son extractos de prompts utilizados.  El resto de la tabla resume los pedidos y sus resultados.
 
 ### 3. Prompts acompañados de implementación y verificación
 
